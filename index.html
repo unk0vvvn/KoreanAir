@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>대한항공 정비 지원 AI Agent 시나리오 PoC</title>
+    <!-- Tailwind CSS for UI Styling -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        .agent-active {
+            animation: pulse 1.5s infinite ease-in-out;
+            border-color: #1d4ed8;
+            background-color: #eff6ff;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .chat-scroll::-webkit-scrollbar { width: 4px; }
+        .chat-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans h-screen flex flex-col">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-[#00205B] text-white px-6 py-4 flex justify-between items-center shadow-md shrink-0">
+        <div class="flex items-center space-x-3">
+            <span class="text-xl font-black tracking-wider">KOREAN AIR</span>
+            <span class="text-sm bg-sky-600 px-2 py-0.5 rounded font-bold">정비 업무 지원 Agent</span>
+        </div>
+        <div class="text-xs text-slate-300">로그인: 임재동 정비사 (야간 정비 통제실)</div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="flex-1 max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
+        
+        <!-- LEFT: Controls & Agent Monitor (4 Columns) -->
+        <div class="lg:col-span-4 flex flex-col space-y-4 overflow-y-auto">
+            
+            <!-- Scenario Controller Trigger -->
+            <div class="bg-white p-5 rounded-xl shadow-md border-2 border-blue-600">
+                <h2 class="text-sm font-bold mb-2 text-slate-800 flex items-center">
+                    <span class="w-2.5 h-2.5 bg-blue-600 rounded-full mr-2 animate-ping"></span>PoC 데모 컨트롤러
+                </h2>
+                <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+                    아래 버튼을 누르면 현장 정비사와 AI 시스템 간의 4단계 연속 대화 시나리오를 자동으로 시작합니다.
+                </p>
+                <button id="startScenarioBtn" onclick="startAutoScenario()" class="w-full bg-[#00205B] hover:bg-blue-900 text-white font-bold py-3 px-4 rounded-xl transition-all shadow text-xs flex justify-center items-center space-x-2">
+                    <span>🎬 4단계 시나리오 재생</span>
+                </button>
+                <div id="scenarioProgress" class="hidden mt-3 text-center text-xs font-bold text-blue-700 bg-blue-50 py-1.5 rounded-lg">
+                    현재 단계: 1 / 4 대화 진행 중...
+                </div>
+            </div>
+
+            <!-- Multi-Agent Orchestration Visualizer -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col">
+                <h2 class="text-sm font-bold mb-3 flex items-center text-slate-700">
+                    <span class="w-2.5 h-2.5 bg-purple-600 rounded-full mr-2"></span>Agent 실시간 구동 모니터
+                </h2>
+                
+                <div class="space-y-3 flex-1 flex flex-col justify-between py-1">
+                    <div id="agent-query" class="border border-slate-200 p-2.5 rounded-lg flex items-start space-x-3 transition-all duration-300 bg-slate-50">
+                        <div class="text-lg">🔍</div>
+                        <div class="text-xs">
+                            <div class="font-bold text-slate-700">Query Understanding Agent</div>
+                            <div id="agent-query-txt" class="text-slate-400 mt-0.5">대기 중...</div>
+                        </div>
+                    </div>
+                    <div id="agent-retrieval" class="border border-slate-200 p-2.5 rounded-lg flex items-start space-x-3 transition-all duration-300 bg-slate-50">
+                        <div class="text-lg">📚</div>
+                        <div class="text-xs">
+                            <div class="font-bold text-slate-700">Retrieval Agent (RAG)</div>
+                            <div id="agent-retrieval-txt" class="text-slate-400 mt-0.5">대기 중...</div>
+                        </div>
+                    </div>
+                    <div id="agent-verification" class="border border-slate-200 p-2.5 rounded-lg flex items-start space-x-3 transition-all duration-300 bg-slate-50">
+                        <div class="text-lg">🛡️</div>
+                        <div class="text-xs">
+                            <div class="font-bold text-slate-700">Verification Agent (규정 검증)</div>
+                            <div id="agent-verification-txt" class="text-slate-400 mt-0.5">대기 중...</div>
+                        </div>
+                    </div>
+                    <div id="agent-generation" class="border border-slate-200 p-2.5 rounded-lg flex items-start space-x-3 transition-all duration-300 bg-slate-50">
+                        <div class="text-lg">✍️</div>
+                        <div class="text-xs">
+                            <div class="font-bold text-slate-700">Response Generation Agent</div>
+                            <div id="agent-generation-txt" class="text-slate-400 mt-0.5">대기 중...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- RIGHT: Interactive Chatbot Interface (8 Columns) -->
+        <div class="lg:col-span-8 flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            
+            <!-- Chat Header -->
+            <div class="bg-slate-100 px-5 py-3 border-b border-slate-200 flex justify-between items-center shrink-0">
+                <div class="flex items-center space-x-2">
+                    <div class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></div>
+                    <h2 class="text-sm font-bold text-slate-700">인천 통합 격격동 정비 채널 (대화 이력)</h2>
+                </div>
+                <button onclick="resetDemo(true)" class="text-xs text-slate-400 hover:text-red-500 transition-colors">🔄 화면 비우기</button>
+            </div>
+
+            <!-- Chat Message Area -->
+            <div id="chatMessageArea" class="flex-1 p-4 overflow-y-auto space-y-4 chat-scroll bg-slate-50/50">
+                <!-- System Welcome Message -->
+                <div id="welcomeMessage" class="flex items-start space-x-2.5">
+                    <div class="w-8 h-8 bg-[#00205B] text-white rounded-full flex items-center justify-center text-sm shrink-0 font-bold">KAL</div>
+                    <div class="bg-white p-3 rounded-lg rounded-tl-none shadow-sm border border-slate-200 max-w-2xl text-xs">
+                        <p class="text-slate-700">
+                            안녕하세요, 대한항공 정비지원 Multi-Agent 시스템입니다. <br>
+                            좌측의 <strong>'4단계 시나리오 재생'</strong> 버튼을 클릭하면 화면을 초기화한 후 실제 야간 현장 정비 대화 연출을 수행합니다.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Real-time Pipeline Loader -->
+            <div id="floatingLoader" class="hidden px-5 py-2.5 bg-blue-50 border-t border-blue-100 flex items-center space-x-2 text-xs text-blue-700">
+                <div class="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <span id="floatingLoaderTxt">에이전트가 데이터 동기화를 진행하고 있습니다...</span>
+            </div>
+
+            <!-- Fake Dummy Input Area for UI completeness -->
+            <div class="p-3 bg-white border-t border-slate-200 shrink-0 bg-slate-50 opacity-60">
+                <div class="flex items-center space-x-2">
+                    <input type="text" disabled class="flex-1 border border-slate-300 rounded-lg p-2 text-xs" placeholder="시나리오가 자동 진행 중일 때는 입력이 제한됩니다...">
+                    <button disabled class="bg-slate-400 text-white px-4 py-2 rounded-lg text-xs">전송</button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Script for Multi-Turn Automation Scenario with Auto-Reset -->
+    <script>
+        const aQ = document.getElementById('agent-query'); const aQTxt = document.getElementById('agent-query-txt');
+        const aR = document.getElementById('agent-retrieval'); const aRTxt = document.getElementById('agent-retrieval-txt');
+        const aV = document.getElementById('agent-verification'); const aVTxt = document.getElementById('agent-verification-txt');
+        const aG = document.getElementById('agent-generation'); const aGTxt = document.getElementById('agent-generation-txt');
+        
+        const loader = document.getElementById('floatingLoader');
+        const loaderTxt = document.getElementById('floatingLoaderTxt');
+        const progBadge = document.getElementById('scenarioProgress');
+        const startBtn = document.getElementById('startScenarioBtn');
+        const chatArea = document.getElementById('chatMessageArea');
+
+        // 대화 시나리오 데이터셋 정의 (4 Turns)
+        const scenarioData = [
+            {
+                turn: 1,
+                progressText: "현재 단계: 1 / 4 (초기 문제 인지 및 절차 요청)",
+                userMsg: "B787 유압 시스템 C 압력 저하 경고(HYD PRESS SYS C)가 들어왔어. 야간 긴급 점검 절차랑 참고할 매뉴얼 확인해 줘.",
+                agentLogs: [
+                    { agent: 'query', text: '기종 분석: B787 / 결함 코드: HYD PRESS SYS C 매핑 완료.' },
+                    { agent: 'retrieval', text: 'AMM Chapter 29 및 중앙 유압 허브 인덱스 병렬 탐색.' },
+                    { agent: 'verification', text: '2025-10 최신 개정본 확인. 구버전 이력 1건 제외 처리.' },
+                    { agent: 'generation', text: '필수 안전 수칙 및 체크리스트 가이드 빌드.' }
+                ],
+                agentResponse: `
+                    <div>
+                        <span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full">AMM CH 29-11-00 검증 완료</span>
+                        <h3 class="text-xs font-bold text-slate-800 mt-2 mb-1">🚨 C계통 압력 저하 점검 절차</h3>
+                        <p class="text-slate-600 mb-2">분석 결과 원인은 <strong>전동 모터 펌프(EMP) 내부 누설</strong> 또는 압력 센서 오염 가능성이 큽니다.</p>
+                        <div class="bg-slate-50 p-2 rounded border border-slate-200 text-[11px] space-y-1 my-2">
+                            <strong>현장 필수 안전 체크리스트:</strong><br>
+                            - Cockpit P5 패널 C PUMP 스위치 OFF 및 잔류압 배출 여부 확인<br>
+                            - 주익 하부 Access Panel 522AL 개방 및 육안 누설 검사
+                        </div>
+                        <p class="text-[10px] text-slate-400">🔗 출처: B787-9 AMM 최신본 (Rev 42)</p>
+                    </div>
+                `
+            },
+            {
+                turn: 2,
+                progressText: "현재 단계: 2 / 4 (자재 및 과거 통계 추적)",
+                userMsg: "육안 검사 결과 오링(O-Ring) 손상으로 인한 EMP 미세 누설이 맞네. 오늘 야간 근무 내에 부품 교체 완료 가능한가? 평균 소요 시간이랑 과거 이력 데이터 분석해 줘.",
+                agentLogs: [
+                    { agent: 'query', text: '컨텍스트 갱신: 현상 확정(EMP 누설) -> 자재 및 시간 분석 쿼리 전환.' },
+                    { agent: 'retrieval', text: '대한항공 정비 데이터 허브(K-LIS) 최근 1년 정비 기록 검색.' },
+                    { agent: 'verification', text: '인천정비고 야간 작업 조건과 매칭되는 통계 무결성 검증.' },
+                    { agent: 'generation', text: '평균 타임라인 리포트 생성.' }
+                ],
+                agentResponse: `
+                    <div>
+                        <span class="bg-purple-100 text-purple-800 text-[10px] font-bold px-2 py-0.5 rounded-full">장애 사례 분석 Agent 연산</span>
+                        <h3 class="text-xs font-bold text-slate-800 mt-2 mb-1">🛠️ EMP 교체 작업 통계 및 소요 시간</h3>
+                        <p class="text-slate-600 mb-1">최근 12개월간 동종 결함으로 인한 EMP 교체 사례는 총 14건입니다.</p>
+                        <ul class="list-disc list-inside space-y-0.5 text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 my-2">
+                            <li><strong>평균 조치 시간:</strong> <strong>2.5시간</strong> (야간 라인 정비 기준)</li>
+                            <li><strong>필요 인력:</strong> 2명 (정비사 확인 완료)</li>
+                            <li><strong>자재 확보 여부:</strong> 인천 메인 부품 창고에 EMP 자재 및 O-Ring 키트 재고 보유 확인 완료.</li>
+                        </ul>
+                    </div>
+                `
+            },
+            {
+                turn: 3,
+                progressText: "현재 단계: 3 / 4 (상충하는 정비 규정 교차 검증)",
+                userMsg: "AMM 매뉴얼 보니까 EMP 장착할 때 토크(Torque) 값이랑 윤활유(Lubricant) 종류가 기재된 페이지마다 조금 다르게 나와 있어서 헷갈리네. 충돌 규정 있는지 정확하게 검증해 줘.",
+                agentLogs: [
+                    { agent: 'query', text: '문서 검증 모드 진입: 토크 값 규정 대조 분석.' },
+                    { agent: 'retrieval', text: 'B787-9 AMM 최신 개정판(Rev 42) vs 현장 간이 매뉴얼 교차 검색.' },
+                    { agent: 'verification', text: '⚠️ [경고 발견] 구형 정비 지침서의 토크 규정 수치 상충 발견 -> 최신본 기준으로 강제 필터링.' },
+                    { agent: 'generation', text: '정오표 및 확정 수치 보고서 빌드.' }
+                ],
+                agentResponse: `
+                    <div>
+                        <span class="bg-red-100 text-red-800 text-[10px] font-bold px-2 py-0.5 rounded-full">문서 검증 Agent 긴급 필터링</span>
+                        <h3 class="text-xs font-bold text-red-700 mt-2 mb-1">⚠️ 규정 상충 경고 및 최종 데이터 확정</h3>
+                        <p class="text-slate-600">구형 간이 지침서에 명시된 토크 값은 전년도에 폐기(Deprecated)되었습니다. 항공 안전을 위해 반드시 <strong>최신 개정 문서 규정</strong>을 따르십시오.</p>
+                        <div class="mt-2 grid grid-cols-2 gap-2 text-center text-[11px]">
+                            <div class="bg-red-50 p-1.5 border border-red-200 rounded text-red-600 font-bold">❌ 과거 규정: 240 in-lb</div>
+                            <div class="bg-emerald-50 p-1.5 border border-emerald-200 rounded text-emerald-700 font-bold">✅ 최신 AMM 규정: 280 in-lb</div>
+                        </div>
+                        <p class="text-[11px] text-slate-600 mt-2"><strong>적용 윤활유:</strong> BMS 3-33 Aviation Grease 적용 (최신 버전 무결성 확인 완료).</p>
+                    </div>
+                `
+            },
+            {
+                turn: 4,
+                progressText: "현재 단계: 4 / 4 (정비 보고서 자동 요약 및 서명)",
+                userMsg: "오케이, 최신 규정대로 280 in-lb 토크 값 적용해서 EMP 교체 및 기능 점검 테스트까지 완료했어. 오늘 조치한 정비 로그 요약문 작성해 줘. 그대로 퇴근 보고서에 올리게.",
+                agentLogs: [
+                    { agent: 'query', text: '로그 요약 모드: 조치 결과 아웃라인 생성.' },
+                    { agent: 'retrieval', text: '금일 실시간 대화 Context 및 조치 팩트 결합.' },
+                    { agent: 'verification', text: '필수 기재 항목(기종, 부품명, 규정 수치 준수 여부) 검증.' },
+                    { agent: 'generation', text: '대한항공 K-LIS 규격 맞춤형 요약서 렌더링.' }
+                ],
+                agentResponse: `
+                    <div>
+                        <span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">정비 보고서 요약 Agent 완료</span>
+                        <h3 class="text-xs font-bold text-slate-800 mt-2 mb-1">📝 K-LIS 등록용 정비 조치 결과 요약문</h3>
+                        <div class="bg-slate-50 p-2.5 rounded border border-slate-200 text-[11px] font-mono text-slate-700 space-y-1">
+                            <div>[AIRCRAFT] B787-9</div>
+                            <div>[SIGNIFICANCE] HYD PRESS SYS C LOW WARNING</div>
+                            <div>[ACTION TAKEN] 주익 하부 Panel 522AL 개방 후 EMP 내부 오링 손상으로 인한 유압 누설 확인. 최신 AMM 규정(CH 29-11-00, Rev 42) 의거 토크 값 280 in-lb 및 BMS 3-33 윤활유 적용하여 EMP 아셈블리 신품 교체 완료. 조치 후 기능 점검(Operational Test) 결과 정상 압력 복구 확인 및 경고등 소등 완료.</div>
+                        </div>
+                        <div class="mt-3 flex justify-end">
+                            <button onclick="alert('서명이 완료되었습니다. 조치 내역이 전사 정비 로그 시스템에 정상 전송되었습니다.')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 px-3 rounded text-[11px] transition-colors">
+                                최종 정비 확인 및 서명 완료
+                            </button>
+                        </div>
+                    </div>
+                `
+            }
+        ];
+
+        function appendMessage(sender, text, isHtml = false) {
+            const msgRow = document.createElement('div');
+            if (sender === 'user') {
+                msgRow.className = "flex justify-end";
+                msgRow.innerHTML = `<div class="bg-blue-600 text-white p-2.5 rounded-lg rounded-tr-none shadow-sm max-w-xl text-xs leading-relaxed">${text}</div>`;
+            } else {
+                msgRow.className = "flex items-start space-x-2.5";
+                msgRow.innerHTML = `
+                    <div class="w-8 h-8 bg-[#00205B] text-white rounded-full flex items-center justify-center text-sm shrink-0 font-bold">KAL</div>
+                    <div class="bg-white p-3.5 rounded-lg rounded-tl-none shadow-sm border border-slate-200 max-w-2xl text-xs text-slate-800 leading-relaxed">${isHtml ? text : `<p>${text}</p>`}</div>
+                `;
+            }
+            chatArea.appendChild(msgRow);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        // 전체 통합 자동 재생 프로세스
+        function startAutoScenario() {
+            // [추가] 시작하자마자 대화 이력 영역을 깨끗하게 비우기
+            chatArea.innerHTML = "";
+
+            startBtn.disabled = true;
+            startBtn.classList.add('opacity-50');
+            progBadge.classList.remove('hidden');
+
+            let currentIdx = 0;
+
+            function playNextTurn() {
+                if (currentIdx >= scenarioData.length) {
+                    loader.classList.add('hidden');
+                    progBadge.innerText = "🎉 4단계 대화 시나리오 연출 완료";
+                    progBadge.className = "mt-3 text-center text-xs font-bold text-emerald-700 bg-emerald-50 py-1.5 rounded-lg";
+                    startBtn.disabled = false;
+                    startBtn.classList.remove('opacity-50');
+                    return;
+                }
+
+                const currentData = scenarioData[currentIdx];
+                progBadge.innerText = currentData.progressText;
+
+                // 정비사 질문 띄우기
+                appendMessage('user', currentData.userMsg);
+
+                // 에이전트 연산 체인 가동
+                loader.classList.remove('hidden');
+                resetAgentStyles();
+
+                // Step A: Query
+                setTimeout(() => {
+                    loaderTxt.innerText = "Query Understanding Agent 가동 중...";
+                    setActive(aQ, aQTxt, currentData.agentLogs[0].text);
+                }, 400);
+
+                // Step B: Retrieval
+                setTimeout(() => {
+                    setComplete(aQ, aQTxt, "완료");
+                    loaderTxt.innerText = "Retrieval Agent 가동 중...";
+                    setActive(aR, aRTxt, currentData.agentLogs[1].text);
+                }, 1400);
+
+                // Step C: Verification
+                setTimeout(() => {
+                    setComplete(aR, aRTxt, "완료");
+                    loaderTxt.innerText = "Verification Agent 규정 정합성 검증 중...";
+                    setActive(aV, aVTxt, currentData.agentLogs[2].text);
+                }, 2600);
+
+                // Step D: Generation
+                setTimeout(() => {
+                    setComplete(aV, aVTxt, "검증 통과");
+                    loaderTxt.innerText = "Response Generation Agent 가이드 조합 중...";
+                    setActive(aG, aGTxt, currentData.agentLogs[3].text);
+                }, 3800);
+
+                // 최종 챗봇 응답 출력 및 다음 턴 예약
+                setTimeout(() => {
+                    setComplete(aG, aGTxt, "완료");
+                    appendMessage('agent', currentData.agentResponse, true);
+                    currentIdx++;
+                    
+                    setTimeout(playNextTurn, 3500);
+                }, 4800);
+            }
+
+            // 첫 번째 턴 시작
+            playNextTurn();
+        }
+
+        function setActive(agentEl, textEl, text) {
+            agentEl.classList.remove('bg-slate-50');
+            agentEl.classList.add('agent-active', 'shadow-sm');
+            textEl.className = "text-blue-600 mt-0.5 font-medium";
+            textEl.innerText = text;
+        }
+
+        function setComplete(agentEl, textEl, text) {
+            agentEl.classList.remove('agent-active');
+            agentEl.classList.add('border-emerald-500', 'bg-emerald-50/30');
+            textEl.className = "text-emerald-700 mt-0.5 font-medium";
+            textEl.innerText = text;
+        }
+
+        function resetAgentStyles() {
+            const agents = [aQ, aR, aV, aG];
+            const texts = [aQTxt, aRTxt, aVTxt, aGTxt];
+            agents.forEach(a => a.className = "border border-slate-200 p-2.5 rounded-lg flex items-start space-x-3 transition-all duration-300 bg-slate-50");
+            texts.forEach(t => { t.className = "text-slate-400 mt-0.5"; t.innerText = "대기 중..."; });
+        }
+
+        function resetDemo(clearAll = false) {
+            resetAgentStyles();
+            startBtn.disabled = false;
+            startBtn.classList.remove('opacity-50');
+            progBadge.classList.add('hidden');
+            progBadge.className = "mt-3 text-center text-xs font-bold text-blue-700 bg-blue-50 py-1.5 rounded-lg";
+            loader.classList.add('hidden');
+            
+            chatArea.innerHTML = `
+                <div class="flex items-start space-x-2.5">
+                    <div class="w-8 h-8 bg-[#00205B] text-white rounded-full flex items-center justify-center text-sm shrink-0 font-bold">KAL</div>
+                    <div class="bg-white p-3 rounded-lg rounded-tl-none shadow-sm border border-slate-200 max-w-2xl text-xs">
+                        <p class="text-slate-700">
+                            안녕하세요, 대한항공 정비지원 Multi-Agent 시스템입니다. <br>
+                            좌측의 <strong>'4단계 시나리오 재생'</strong> 버튼을 클릭하면 화면을 초기화한 후 실제 야간 현장 정비 대화 연출을 수행합니다.
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
